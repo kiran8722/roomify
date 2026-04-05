@@ -13,3 +13,44 @@ body {
     color-scheme: dark;
   }
 }
+.navbar{
+  @apply bg-white dark:bg-gray-950;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 1;
+  display: flex;
+}
+.navbar-brand {
+  @apply dark:bg-gray-950;
+  display: block;
+
+}
+.navbar:hover {
+  @apply dark:bg-gray-950;
+
+}
+.nav{
+  display: inline-flex;
+  padding: 14px;
+}
+.links{
+  @apply dark:bg-gray-950;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  width: auto;
+  margin: 0 26px;
+}
+.links a:hover{
+  @apply dark:bg-gray-950;
+  text-decoration:underline;
+}
+.actions{
+  margin-left: auto;
+  margin-right: 5%;
+}
+
+
+

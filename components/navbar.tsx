@@ -1,0 +1,79 @@
+import { Box } from "lucide-react";
+import Button from "./button";
+
+import {useOutletContext} from "react-router";
+const  IsSignedIn =true;
+const UserName ="user";
+
+const Navbar = () => {
+    const {isSignedIn, userName,SignIn,SignOut} = useOutletContext<AuthContext>();
+  const handleAuthClick = async () => {
+      if (isSignedIn){
+          try {
+              await SignOut();
+          }catch (e) {
+              console.log(`Puter Sign Out failed : ${e}`)
+          }
+          return
+      }
+      try{
+          await SignIn();
+      }
+      catch (e){
+          console.log(`Puter Sign In failed : ${e}`)
+      }
+
+  };
+
+  const handleGetStarted = () => {
+    console.log("Get started clicked");
+  };
+
+  const handleLogout = () => {
+
+  }
+
+
+  return (
+    <header className="navbar shadow-xs">
+      <div className="nav">
+        <Box className="logo"></Box>
+        <div className="ml-2">Roomify</div>
+      </div>
+      <ul className="links">
+        <a href="#">Product</a>
+        <a href="#">Pricing</a>
+        <a href="#">Community</a>
+        <a href="#">Enterprise</a>
+      </ul>
+
+      <div className="actions flex items-center gap-2">
+          {IsSignedIn ?(
+              <>
+                 <span className="greetings">
+                     {userName ?`Hi,${userName} `:
+                         'You are logged in'
+                     }
+                 </span>
+                  <Button onClick={handleLogout} >Logout</Button>
+              </>
+
+          ):(
+              <>
+              <Button variant="ghost" size="sm" onClick={handleAuthClick}>
+               Login
+             </Button>
+                  <Button variant="primary" size="sm" onClick={handleGetStarted}>
+            Get Started
+        </Button>
+              </>
+
+        )
+        }
+
+      </div>
+    </header>
+  );
+};
+
+export default Navbar;
