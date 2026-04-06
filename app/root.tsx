@@ -9,6 +9,7 @@ import {
 
 import type { Route } from "./+types/root";
 import "./app.css";
+import "./app_2.css"
 import {useEffect, useState} from "react";
 import {getCurrentUser ,
 SignIn as PuterSignIn ,
