@@ -11,6 +11,9 @@ type UploadProps = {
   onComplete?: (data: string) => void;
 };
 
+const ALLOWED_FILE_TYPES = ["image/png", "image/jpg", "image/jpeg"];
+const ACCEPTED_FILE_TYPES = ".png,.jpg,.jpeg,image/png,image/jpeg";
+
 const Upload = ({ onComplete = () => {} }: UploadProps) => {
   const { isSignedIn } = useOutletContext<AuthContext>();
   const [isDragging, setIsDragging] = useState(false);
@@ -39,13 +42,12 @@ const Upload = ({ onComplete = () => {} }: UploadProps) => {
     };
   }, []);
 
-  const processFile = (files: FileList | null) => {
+  const processFile = (file: File | null | undefined) => {
     if (!isSignedIn) {
       return;
     }
 
-    const file = files?.[0];
-    if (!file) {
+    if (!file || !ALLOWED_FILE_TYPES.includes(file.type)) {
       return;
     }
 
@@ -86,7 +88,7 @@ const Upload = ({ onComplete = () => {} }: UploadProps) => {
     if (!isSignedIn) {
       return;
     }
-    processFile(event.target.files);
+    processFile(event.target.files?.[0]);
     event.target.value = "";
   };
 
@@ -126,7 +128,8 @@ const Upload = ({ onComplete = () => {} }: UploadProps) => {
       return;
     }
     setIsDragging(false);
-    processFile(event.dataTransfer.files);
+    const dropFile = event.dataTransfer.files[0];
+    processFile(dropFile);
   };
 
   return (
@@ -143,7 +146,7 @@ const Upload = ({ onComplete = () => {} }: UploadProps) => {
           <input
             className="drop-input"
             type="file"
-            accept="image/*"
+            accept={ACCEPTED_FILE_TYPES}
             onChange={handleChange}
             disabled={!isSignedIn}
             aria-disabled={!isSignedIn}

@@ -4,18 +4,18 @@ import Button from "./button";
 import {useOutletContext} from "react-router";
 
 const Navbar = () => {
-    const {isSignedIn, userName,SignIn,SignOut} = useOutletContext<AuthContext>();
+    const {isSignedIn, userName,signIn,signOut} = useOutletContext<AuthContext>();
   const handleAuthClick = async () => {
       if (isSignedIn){
           try {
-              await SignOut();
+              await signOut();
           }catch (e) {
               console.log(`Puter Sign Out failed : ${e}`)
           }
           return
       }
       try{
-          await SignIn();
+          await signIn();
       }
       catch (e){
           console.log(`Puter Sign In failed : ${e}`)
