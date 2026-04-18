@@ -11,7 +11,7 @@ type UploadProps = {
   onComplete?: (data: string) => void;
 };
 
-const ALLOWED_FILE_TYPES = ["image/png", "image/jpg", "image/jpeg"];
+const ALLOWED_FILE_TYPES = ["image/png", "image/jpeg"];
 const ACCEPTED_FILE_TYPES = ".png,.jpg,.jpeg,image/png,image/jpeg";
 
 const Upload = ({ onComplete = () => {} }: UploadProps) => {
