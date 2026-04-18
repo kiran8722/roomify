@@ -20,3 +20,6 @@ const VisualizeId =() =>{
       </section>
   )
 }
+
+export default VisualizeId;
+}
