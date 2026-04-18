@@ -7,7 +7,6 @@ import {
     imageUrlToPngBlob,
     isHostedUrl
 } from "./utils";
-import {blob} from "node:stream/consumers";
 
 export const getOrCreateHostingConfig = async ():
     Promise<HostingConfig | null> => {
