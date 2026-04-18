@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { Check, FileText, UploadCloud } from "lucide-react";
 import { useOutletContext } from "react-router";
 import {
@@ -39,8 +39,13 @@ const Upload = ({ onComplete = () => {} }: UploadProps) => {
     };
   }, []);
 
-  const processFile = (file: File) => {
+  const processFile = (files: FileList | null) => {
     if (!isSignedIn) {
+      return;
+    }
+
+    const file = files?.[0];
+    if (!file) {
       return;
     }
 
@@ -52,8 +57,8 @@ const Upload = ({ onComplete = () => {} }: UploadProps) => {
 
     const reader = new FileReader();
     reader.onload = () => {
-      const result = reader.result;
-      if (typeof result !== "string") {
+      const base64Data = reader.result;
+      if (typeof base64Data !== "string") {
         return;
       }
 
@@ -63,10 +68,13 @@ const Upload = ({ onComplete = () => {} }: UploadProps) => {
         setProgress(currentProgress);
 
         if (currentProgress >= 100) {
-          clearTimers();
+          if (intervalRef.current) {
+            window.clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
+          setStatus("complete");
           timeoutRef.current = window.setTimeout(() => {
-            setStatus("complete");
-            onComplete(result);
+            onComplete(base64Data);
           }, REDIRECT_DELAY_MS);
         }
       }, PROGRESS_INTERVAL_MS);
@@ -74,19 +82,15 @@ const Upload = ({ onComplete = () => {} }: UploadProps) => {
     reader.readAsDataURL(file);
   };
 
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (!isSignedIn) {
       return;
     }
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-    processFile(file);
+    processFile(event.target.files);
     event.target.value = "";
   };
 
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+  const handleDragEnter = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     if (!isSignedIn) {
       return;
@@ -94,25 +98,35 @@ const Upload = ({ onComplete = () => {} }: UploadProps) => {
     setIsDragging(true);
   };
 
-  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+  const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     if (!isSignedIn) {
+      return;
+    }
+    if (!isDragging) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (!isSignedIn) {
+      return;
+    }
+    const nextTarget = event.relatedTarget;
+    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
       return;
     }
     setIsDragging(false);
   };
 
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     if (!isSignedIn) {
       return;
     }
     setIsDragging(false);
-    const file = event.dataTransfer.files?.[0];
-    if (!file) {
-      return;
-    }
-    processFile(file);
+    processFile(event.dataTransfer.files);
   };
 
   return (
@@ -120,9 +134,11 @@ const Upload = ({ onComplete = () => {} }: UploadProps) => {
       {status === "idle" ? (
         <div
           className={`dropzone${isDragging ? " is-dragging" : ""}`}
+          onDragEnter={handleDragEnter}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
+          aria-disabled={!isSignedIn}
         >
           <input
             className="drop-input"

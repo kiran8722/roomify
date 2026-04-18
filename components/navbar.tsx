@@ -2,8 +2,6 @@ import { Box } from "lucide-react";
 import Button from "./button";
 
 import {useOutletContext} from "react-router";
-const  IsSignedIn =true;
-const UserName ="user";
 
 const Navbar = () => {
     const {isSignedIn, userName,SignIn,SignOut} = useOutletContext<AuthContext>();
@@ -26,12 +24,10 @@ const Navbar = () => {
   };
 
   const handleGetStarted = () => {
-    console.log("Get started clicked");
+    if (!isSignedIn) {
+      void handleAuthClick();
+    }
   };
-
-  const handleLogout = () => {
-
-  }
 
 
   return (
@@ -48,14 +44,14 @@ const Navbar = () => {
       </ul>
 
       <div className="actions flex items-center gap-2">
-          {IsSignedIn ?(
+          {isSignedIn ?(
               <>
-                 <span className="greetings">
-                     {userName ?`Hi,${userName} `:
-                         'You are logged in'
-                     }
-                 </span>
-                  <Button onClick={handleLogout} >Logout</Button>
+                  <span className="greetings">
+                      {userName ?`Hi,${userName} `:
+                          'You are logged in'
+                      }
+                  </span>
+                   <Button onClick={handleAuthClick} >Logout</Button>
               </>
 
           ):(
