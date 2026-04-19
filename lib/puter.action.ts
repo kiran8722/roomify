@@ -63,8 +63,10 @@ export const createProject = async ({ item, visibility = "private" }: CreateProj
     const response = await puter.workers.exec(`${PUTER_WORKER_URL}/api/projects/save`, {
       method: 'POST',
       body: JSON.stringify({
-        project: payload,
-        visibility
+        project: {
+          ...payload,
+          visibility,
+        }
       })
     });
 

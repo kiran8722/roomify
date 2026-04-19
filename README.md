@@ -24,6 +24,21 @@ Install the dependencies:
 npm install
 ```
 
+### Environment Variables
+
+This project requires the following local environment variable:
+
+- `VITE_PUTER_WORKER_URL`: the base URL for the Puter worker used by the app.
+
+For local development, copy the example file and create your own `.env.local`:
+
+```bash
+cp .env.local.example .env.local
+```
+
+Then update `VITE_PUTER_WORKER_URL` in `.env.local` with your local or personal worker URL.
+The `.env.local` file is ignored by git, so each developer can keep local overrides without committing them.
+
 ### Development
 
 Start the development server with HMR:
