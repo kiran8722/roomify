@@ -1,97 +1,140 @@
 import puter from "@heyputer/puter.js";
-import {getOrCreateHostingConfig, uploadImagetoHoisting} from "./puter.hosting";
+import {getOrCreateHostingConfig, uploadImageToHosting} from "./puter.hosting";
 import {isHostedUrl} from "./utils";
+import {PUTER_WORKER_URL} from "./constants";
 
-const PROJECT_KEY_PREFIX = "roomify:project:";
+export const signIn = async () => await puter.auth.signIn();
 
-const getProjectKey = (projectId: string) => `${PROJECT_KEY_PREFIX}${projectId}`;
+export const signOut = () => puter.auth.signOut();
 
-export interface PuterUser {
-  userName?: string | null;
-  uuid?: string | null;
+export const getCurrentUser = async () => {
+  try {
+    return await puter.auth.getUser();
+  } catch {
+    return null;
+  }
 }
 
-export const SignIn = async () => await puter.auth.signIn();
-export const SignOut = () => puter.auth.signOut();
-
-export const getCurrentUser = async (): Promise<PuterUser | null> => {
-  try {
-    return (await puter.getUser()) as PuterUser;
-  } catch (error) {
+export const createProject = async ({ item, visibility = "private" }: CreateProjectParams): Promise<DesignItem | null | undefined> => {
+  if(!PUTER_WORKER_URL) {
+    console.warn('Missing VITE_PUTER_WORKER_URL; skip history fetch;');
     return null;
   }
-};
-
-const resolveProjectAssets = async (
-  item: DesignItem,
-): Promise<DesignItem | null> => {
   const projectId = item.id;
 
-  const payload = {
-    ...item,
-    sourceImage: item.sourceImage,
-    renderedImage: item.renderedImage,
-  };
-
   const hosting = await getOrCreateHostingConfig();
-  const hostedSource = projectId
-    ? await uploadImagetoHoisting({
-        hosting,
-        url: item.sourceImage,
-        projectId,
-        label: "source",
-      })
-    : null;
 
-  const hostedRender = projectId && item.renderedImage
-    ? await uploadImagetoHoisting({
-        hosting,
-        url: item.renderedImage,
-        projectId,
-        label: "rendered",
-      })
-    : null;
+  const hostedSource = projectId ?
+      await uploadImageToHosting({ hosting, url: item.sourceImage, projectId, label: 'source', }) : null;
 
-  if (hostedSource?.url) {
-    payload.sourceImage = hostedSource.url;
-  } else if (!item.sourceImage) {
+  const hostedRender = projectId && item.renderedImage ?
+      await uploadImageToHosting({ hosting, url: item.renderedImage, projectId, label: 'rendered', }) : null;
+
+  const resolvedSource = hostedSource?.url || (isHostedUrl(item.sourceImage)
+          ? item.sourceImage
+          : ''
+  );
+
+  if(!resolvedSource) {
+    console.warn('Failed to host source image, skipping save.')
     return null;
   }
 
-  if (hostedRender?.url) {
-    payload.renderedImage = hostedRender.url;
-  } else if (item.renderedImage && isHostedUrl(item.renderedImage)) {
-    payload.renderedImage = item.renderedImage;
+  const resolvedRender = hostedRender?.url
+      ? hostedRender?.url
+      : item.renderedImage && isHostedUrl(item.renderedImage)
+          ? item.renderedImage
+          : undefined;
+
+  const {
+    sourcePath: _sourcePath,
+    renderedPath: _renderedPath,
+    publicPath: _publicPath,
+    ...rest
+  } = item;
+
+  const payload = {
+    ...rest,
+    sourceImage: resolvedSource,
+    renderedImage: resolvedRender,
   }
 
-  return payload;
-};
-
-export const getProject = async (projectId: string): Promise<DesignItem | null> => {
   try {
-    return (await puter.kv.get<DesignItem>(getProjectKey(projectId))) ?? null;
-  } catch (error) {
-    console.warn("Failed to load project", error);
-    return null;
-  }
-};
+    const response = await puter.workers.exec(`${PUTER_WORKER_URL}/api/projects/save`, {
+      method: 'POST',
+      body: JSON.stringify({
+        project: payload,
+        visibility
+      })
+    });
 
-export const saveProject = async (item: DesignItem): Promise<DesignItem | null> => {
-  try {
-    const payload = await resolveProjectAssets(item);
-    if (!payload) {
+    if(!response.ok) {
+      console.error('failed to save the project', await response.text());
       return null;
     }
 
-    await puter.kv.set(getProjectKey(item.id), payload);
-    return payload;
-  } catch (e) {
-    console.warn("Failed to save project", e);
-    return item.sourceImage ? item : null;
-  }
-};
+    const data = (await response.json()) as { project?: DesignItem | null }
 
-export const createProject = async ({item }:  CreateProjectParams):
-Promise<DesignItem | null | undefined> => {
-  return await saveProject(item);
+    return data?.project ?? null;
+  } catch (e) {
+    console.log('Failed to save project', e)
+    return null;
+  }
+}
+
+export const getProjects = async () => {
+  if(!PUTER_WORKER_URL) {
+    console.warn('Missing VITE_PUTER_WORKER_URL; skip history fetch;');
+    return []
+  }
+
+  try {
+    const response = await puter.workers.exec(`${PUTER_WORKER_URL}/api/projects/list`, { method: 'GET' });
+
+    if(!response.ok) {
+      console.error('Failed to fetch history', await response.text());
+      return [];
+    }
+
+    const data = (await response.json()) as { projects?: DesignItem[] | null };
+
+    return Array.isArray(data?.projects) ? data?.projects : [];
+  } catch (e) {
+    console.error('Failed to get projects', e);
+    return [];
+  }
+}
+
+export const getProjectById = async ({ id }: { id: string }) => {
+  if (!PUTER_WORKER_URL) {
+    console.warn("Missing VITE_PUTER_WORKER_URL; skipping project fetch.");
+    return null;
+  }
+
+  console.log("Fetching project with ID:", id);
+
+  try {
+    const response = await puter.workers.exec(
+        `${PUTER_WORKER_URL}/api/projects/get?id=${encodeURIComponent(id)}`,
+        { method: "GET" },
+    );
+
+    console.log("Fetch project response:", response);
+
+    if (!response.ok) {
+      console.error("Failed to fetch project:", await response.text());
+      return null;
+    }
+
+    const data = (await response.json()) as {
+      project?: DesignItem | null;
+    };
+
+    console.log("Fetched project data:", data);
+
+    return data?.project ?? null;
+  } catch (error) {
+    console.error("Failed to fetch project:", error);
+    return null;
+  }
 };
