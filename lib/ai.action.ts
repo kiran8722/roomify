@@ -63,8 +63,6 @@ export const generate3DView = async ({ sourceImage }: Generate3DViewParams) => {
     ratio: { w: 1024, h: 1024 },
   });
 
-  console.log(response);
-
   const rawImageUrl = getImageSource(response);
 
   if (!rawImageUrl) {

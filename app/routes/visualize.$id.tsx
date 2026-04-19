@@ -1,59 +1,137 @@
-import {useLocation, useNavigate} from "react-router";
+import {useLocation, useNavigate, useParams} from "react-router";
 import {useEffect, useRef, useState} from "react";
 import {generate3DView} from "../../lib/ai.action";
+import {getProject, saveProject} from "../../lib/puter.action";
 import {Box, Download, RefreshCcw, Share2, X} from "lucide-react";
 import Button from "../../components/button";
 
 
 const VisualizeId =() =>{
-    const navigate = useNavigate();
+  const navigate = useNavigate();
+  const { id: projectId } = useParams();
   const location = useLocation();
-  const {initialImage, initialRendered, name } = location.state || {};
+  const routeState = (location.state ?? null) as VisualizerLocationState | null;
+  const initialImage = routeState?.initialImage ?? null;
+  const initialRendered = routeState?.initialRender ?? routeState?.initialRender ?? null;
+  const name = routeState?.name ?? null;
+  const lastInitKeyRef = useRef<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [hasResolvedProject, setHasResolvedProject] = useState(false);
+  const [designItem, setDesignItem] = useState<DesignItem | null>(() => {
+    if (!projectId || !initialImage) {
+      return null;
+    }
 
-  const initialGenerated =useRef(false);
+    return {
+      id: projectId,
+      name,
+      sourceImage: initialImage,
+      renderedImage: initialRendered,
+      timestamp: Date.now(),
+    };
+  });
+  const [CurrentImage, setCurrentImage] = useState<string | null>(initialRendered);
 
-    const [isProcessing, setIsProcessing] = useState(false);
+  const handleBack = () => navigate('/');
 
-    const [CurrentImage, setCurrentImage] = useState<string | null>(
-      initialRendered ?? null,
-    );
+  useEffect(() => {
+    let isActive = true;
 
-    const handleBack = () => navigate('/');
+    const loadProject = async () => {
+      if (!projectId) {
+        setHasResolvedProject(true);
+        return;
+      }
 
-    const runGeneration =async ()=>{
-        if(!initialImage) return;
+      const savedProject = await getProject(projectId);
+      if (!isActive) {
+        return;
+      }
 
-        try {
-            setIsProcessing(true);
-            const result = await generate3DView({sourceImage: initialImage});
+      if (savedProject) {
+        setDesignItem(savedProject);
+        setCurrentImage(savedProject.renderedImage ?? initialRendered);
+      } else if (initialImage) {
+        setDesignItem({
+          id: projectId,
+          name,
+          sourceImage: initialImage,
+          renderedImage: initialRendered,
+          timestamp: Date.now(),
+        });
+        setCurrentImage(initialRendered);
+      }
 
-            if (result.renderedImage) {
-                setCurrentImage(result.renderedImage);
-            }
-        }
-        catch(e){
-        console.error('Generation Failed',e);
-            }
-            finally {
-            setIsProcessing(false);
+      setHasResolvedProject(true);
+    };
 
-        }
+    void loadProject();
+
+    return () => {
+      isActive = false;
+    };
+  }, [initialImage, initialRendered, name, projectId]);
+
+  const runGeneration = async () => {
+    if (!designItem?.sourceImage) {
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      const result = await generate3DView({
+        sourceImage: designItem.sourceImage,
+        projectId: designItem.id,
+      });
+
+      if (result.renderedImage) {
+        const optimisticItem: DesignItem = {
+          ...designItem,
+          renderedImage: result.renderedImage,
         };
 
-    useEffect(() => {
-        if (initialGenerated.current) {
-            return;
+        setCurrentImage(result.renderedImage);
+        setDesignItem(optimisticItem);
+
+        try {
+          const savedProject = await saveProject(optimisticItem);
+          if (savedProject) {
+            setDesignItem(savedProject);
+            setCurrentImage(savedProject.renderedImage ?? result.renderedImage);
+          } else {
+            console.error("Failed to persist rendered image");
+          }
+        } catch (error) {
+          console.error("Failed to persist rendered image", error);
         }
+      }
+    } catch (e) {
+      console.error('Generation Failed',e);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
-        initialGenerated.current = true;
+  useEffect(() => {
+    if (!hasResolvedProject || !designItem?.sourceImage) {
+      return;
+    }
 
-        if (initialRendered) {
-            setCurrentImage(initialRendered);
-            return;
-        }
+    const initKey = `${designItem.id}:${designItem.sourceImage}`;
+    if (lastInitKeyRef.current === initKey) {
+      return;
+    }
 
-        void runGeneration();
-    }, [initialImage, initialRendered]);
+    lastInitKeyRef.current = initKey;
+
+    if (designItem.renderedImage) {
+      setCurrentImage(designItem.renderedImage);
+      return;
+    }
+
+    setCurrentImage(null);
+    void runGeneration();
+  }, [designItem, hasResolvedProject]);
 
 
 
@@ -74,7 +152,7 @@ const VisualizeId =() =>{
               <div className="panel">
                   <div className="panel-header">
                       <div className="panel-meta">
-                          <p>{name || "Project"}</p>
+                          <p>{designItem?.name || name || "Project"}</p>
                           <p className="note">Created by You</p>
                       </div>
 
@@ -96,13 +174,13 @@ const VisualizeId =() =>{
                   <div className={`render-area ${isProcessing ? 'is-processing': ''}`}>
                       {CurrentImage ? (
                           <img src={CurrentImage} alt="AI Render" className="render-img" />
-                      ) : (
-                          <div className="render-placeholder">
-                              {initialImage && (
-                                  <img src={initialImage} alt="Original" className="render-fallback" />
-                              )}
-                          </div>
-                      )}
+                       ) : (
+                           <div className="render-placeholder">
+                               {designItem?.sourceImage && (
+                                   <img src={designItem.sourceImage} alt="Original" className="render-fallback" />
+                               )}
+                           </div>
+                       )}
 
                       {isProcessing && (
                           <div className="render-overlay">
@@ -122,4 +200,3 @@ const VisualizeId =() =>{
 
 };
 export default VisualizeId;
-
